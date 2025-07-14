@@ -5,11 +5,17 @@ let currentDirectory = null;
 // Load data from localStorage
 document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('directories')) {
-        directories = JSON.parse(localStorage.getItem('directories'));
-        console.log('Loaded directories:', directories);
-        updateDirectorySelect();
-        renderDirectoryList();
-        renderRecentDocuments();
+        try {
+            directories = JSON.parse(localStorage.getItem('directories'));
+            console.log('Loaded directories:', directories);
+            updateDirectorySelect();
+            renderDirectoryList();
+            renderRecentDocuments();
+        } catch (e) {
+            console.error('Error parsing localStorage:', e);
+            alert('Failed to load saved directories. Clearing localStorage.');
+            localStorage.removeItem('directories');
+        }
     }
     const searchBar = document.getElementById('searchBar');
     if (searchBar) {
@@ -97,15 +103,46 @@ document.getElementById('addDocument').addEventListener('click', () => {
     const docName = document.getElementById('documentName').value.trim();
     const docDesc = document.getElementById('documentDescription').value.trim();
 
-    if (directory && fileInput.files[0] && docName) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
+    if (!directory) {
+        alert('Please select a directory.');
+        return;
+    }
+    if (!fileInput.files[0]) {
+        alert('Please upload an image.');
+        return;
+    }
+    if (!docName) {
+        alert('Please enter a document name.');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    // Validate file type and size
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (!validTypes.includes(file.type)) {
+        alert('Please upload a valid image (JPEG, PNG, or GIF).');
+        console.error('Invalid file type:', file.type);
+        return;
+    }
+    if (file.size > maxSize) {
+        alert('File size exceeds 5MB limit.');
+        console.error('File too large:', file.size);
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const imageData = e.target.result;
             directories[directory].push({
                 id: Date.now(),
                 name: docName,
                 description: docDesc,
-                image: e.target.result
+                image: imageData
             });
+            console.log('Document added to:', directory, { name: docName, description: docDesc });
+
             const searchQuery = document.getElementById('searchBar').value.trim();
             if (!currentDirectory && !searchQuery) {
                 renderRecentDocuments();
@@ -114,16 +151,34 @@ document.getElementById('addDocument').addEventListener('click', () => {
             } else if (searchQuery) {
                 renderSearchResults(searchQuery);
             }
+
+            // Save to localStorage and verify
             saveToLocalStorage();
-            fileInput.value = '';
-            document.getElementById('documentName').value = '';
-            document.getElementById('documentDescription').value = '';
-            console.log('Added document to:', directory);
-        };
-        reader.readAsDataURL(fileInput.files[0]);
-    } else {
-        alert('Please select a directory, upload an image, and enter a document name.');
-    }
+            const savedData = JSON.parse(localStorage.getItem('directories'));
+            if (savedData && savedData[directory].some(doc => doc.id === directories[directory][directories[directory].length - 1].id)) {
+                console.log('Document successfully saved to localStorage:', docName);
+            } else {
+                console.error('Failed to verify document in localStorage:', docName);
+                alert('Failed to save document. Please try again.');
+            }
+
+            // Clear inputs after a slight delay
+            setTimeout(() => {
+                fileInput.value = '';
+                document.getElementById('documentName').value = '';
+                document.getElementById('documentDescription').value = '';
+                console.log('Inputs cleared');
+            }, 100);
+        } catch (e) {
+            console.error('Error processing file:', e);
+            alert('Failed to process image. Please try again.');
+        }
+    };
+    reader.onerror = (e) => {
+        console.error('FileReader error:', e);
+        alert('Error reading file. Please try a different image.');
+    };
+    reader.readAsDataURL(file);
 });
 
 // Update Directory Select
@@ -405,6 +460,11 @@ function closeDetailsModal() {
 
 // Save to localStorage
 function saveToLocalStorage() {
-    localStorage.setItem('directories', JSON.stringify(directories));
-    console.log('Saved to localStorage:', directories);
+    try {
+        localStorage.setItem('directories', JSON.stringify(directories));
+        console.log('Saved to localStorage:', directories);
+    } catch (e) {
+        console.error('Error saving to localStorage:', e);
+        alert('Failed to save data. localStorage may be full or disabled.');
+    }
 }
