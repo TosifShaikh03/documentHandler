@@ -202,7 +202,7 @@ document.getElementById('addDocument').addEventListener('click', async () => {
 
     const file = fileInput.files[0];
     const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 10 * 1024 * 1024; // 5MB
     if (!validTypes.includes(file.type)) {
         alert('Please upload a valid image (JPEG, PNG, or GIF).');
         console.error('Invalid file type:', file.type);
