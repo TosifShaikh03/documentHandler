@@ -1,6 +1,8 @@
 let directories = {};
 let currentDocument = null;
 let currentDirectory = null;
+let saveQueue = []; // Queue for document saves
+let isSaving = false; // Flag to prevent concurrent saves
 
 // Load data from localStorage
 document.addEventListener('DOMContentLoaded', () => {
@@ -96,12 +98,94 @@ function deleteDirectory(dirName) {
     }
 }
 
+// Save to localStorage with retry
+async function saveToLocalStorage() {
+    const maxRetries = 3;
+    let attempt = 1;
+    while (attempt <= maxRetries) {
+        try {
+            localStorage.setItem('directories', JSON.stringify(directories));
+            console.log('Saved to localStorage (attempt ' + attempt + '):', directories);
+            return true;
+        } catch (e) {
+            console.error('Error saving to localStorage (attempt ' + attempt + '):', e);
+            if (attempt === maxRetries) {
+                alert('Failed to save data after ' + maxRetries + ' attempts. localStorage may be full or disabled.');
+                return false;
+            }
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+            attempt++;
+        }
+    }
+}
+
+// Process save queue
+async function processSaveQueue() {
+    if (isSaving || saveQueue.length === 0) return;
+    isSaving = true;
+    const { directory, docData, fileInput, docNameInput, docDescInput } = saveQueue.shift();
+    try {
+        directories[directory].push(docData);
+        console.log('Document added to:', directory, docData);
+
+        const searchQuery = document.getElementById('searchBar').value.trim();
+        if (!currentDirectory && !searchQuery) {
+            renderRecentDocuments();
+        } else if (currentDirectory === directory && !searchQuery) {
+            renderDocuments(directory);
+        } else if (searchQuery) {
+            renderSearchResults(searchQuery);
+        }
+
+        const saved = await saveToLocalStorage();
+        if (saved) {
+            const savedData = JSON.parse(localStorage.getItem('directories'));
+            if (savedData && savedData[directory].some(doc => doc.id === docData.id)) {
+                console.log('Document successfully saved to localStorage:', docData.name);
+                setTimeout(() => {
+                    fileInput.value = '';
+                    docNameInput.value = '';
+                    docDescInput.value = '';
+                    console.log('Inputs cleared');
+                }, 500);
+            } else {
+                console.error('Failed to verify document in localStorage:', docData.name);
+                alert('Failed to save document. Please try again.');
+                directories[directory].pop(); // Revert addition
+            }
+        } else {
+            directories[directory].pop(); // Revert addition
+        }
+    } catch (e) {
+        console.error('Error processing save queue:', e);
+        alert('Failed to process document. Please try again.');
+        directories[directory].pop(); // Revert addition
+    } finally {
+        isSaving = false;
+        if (saveQueue.length > 0) {
+            processSaveQueue(); // Process next in queue
+        }
+    }
+}
+
+// Read file as Data URL
+function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(file);
+    });
+}
+
 // Add Document
-document.getElementById('addDocument').addEventListener('click', () => {
+document.getElementById('addDocument').addEventListener('click', async () => {
     const directory = document.getElementById('directorySelect').value;
     const fileInput = document.getElementById('documentImage');
-    const docName = document.getElementById('documentName').value.trim();
-    const docDesc = document.getElementById('documentDescription').value.trim();
+    const docNameInput = document.getElementById('documentName');
+    const docDescInput = document.getElementById('documentDescription');
+    const docName = docNameInput.value.trim();
+    const docDesc = docDescInput.value.trim();
 
     if (!directory) {
         alert('Please select a directory.');
@@ -117,7 +201,6 @@ document.getElementById('addDocument').addEventListener('click', () => {
     }
 
     const file = fileInput.files[0];
-    // Validate file type and size
     const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (!validTypes.includes(file.type)) {
@@ -131,54 +214,21 @@ document.getElementById('addDocument').addEventListener('click', () => {
         return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const imageData = e.target.result;
-            directories[directory].push({
-                id: Date.now(),
-                name: docName,
-                description: docDesc,
-                image: imageData
-            });
-            console.log('Document added to:', directory, { name: docName, description: docDesc });
-
-            const searchQuery = document.getElementById('searchBar').value.trim();
-            if (!currentDirectory && !searchQuery) {
-                renderRecentDocuments();
-            } else if (currentDirectory === directory && !searchQuery) {
-                renderDocuments(directory);
-            } else if (searchQuery) {
-                renderSearchResults(searchQuery);
-            }
-
-            // Save to localStorage and verify
-            saveToLocalStorage();
-            const savedData = JSON.parse(localStorage.getItem('directories'));
-            if (savedData && savedData[directory].some(doc => doc.id === directories[directory][directories[directory].length - 1].id)) {
-                console.log('Document successfully saved to localStorage:', docName);
-            } else {
-                console.error('Failed to verify document in localStorage:', docName);
-                alert('Failed to save document. Please try again.');
-            }
-
-            // Clear inputs after a slight delay
-            setTimeout(() => {
-                fileInput.value = '';
-                document.getElementById('documentName').value = '';
-                document.getElementById('documentDescription').value = '';
-                console.log('Inputs cleared');
-            }, 100);
-        } catch (e) {
-            console.error('Error processing file:', e);
-            alert('Failed to process image. Please try again.');
-        }
-    };
-    reader.onerror = (e) => {
+    try {
+        const imageData = await readFileAsDataURL(file);
+        const docData = {
+            id: Date.now(),
+            name: docName,
+            description: docDesc,
+            image: imageData
+        };
+        saveQueue.push({ directory, docData, fileInput, docNameInput, docDescInput });
+        console.log('Added document to save queue:', docName);
+        processSaveQueue();
+    } catch (e) {
         console.error('FileReader error:', e);
         alert('Error reading file. Please try a different image.');
-    };
-    reader.readAsDataURL(file);
+    }
 });
 
 // Update Directory Select
@@ -456,15 +506,4 @@ function findDocument() {
 function closeDetailsModal() {
     document.getElementById('viewModal').classList.add('hidden');
     console.log('Closed details modal');
-}
-
-// Save to localStorage
-function saveToLocalStorage() {
-    try {
-        localStorage.setItem('directories', JSON.stringify(directories));
-        console.log('Saved to localStorage:', directories);
-    } catch (e) {
-        console.error('Error saving to localStorage:', e);
-        alert('Failed to save data. localStorage may be full or disabled.');
-    }
 }
