@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Handler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-900 font-sans flex transition-colors duration-300">
+    <!-- Toggle Button -->
+    <button id="toggleSidebar" class="fixed top-4 right-4 z-30 bg-blue-500 text-white p-2 rounded">
+        ☰
+    </button>
+
+    <!-- Sidebar Backdrop -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black bg-opacity-50 z-10 hidden"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar bg-gray-800 p-4 border-r border-gray-600 z-20 hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-white">Directories</h2>
+            <button id="closeSidebar" class="text-gray-300 hover:text-white">✕</button>
+        </div>
+        <div class="mb-4">
+            <input type="text" id="directoryName" class="border p-2 rounded w-full bg-gray-700 text-white" placeholder="Enter directory name">
+            <button id="createDirectory" class="bg-blue-500 text-white p-2 rounded w-full mt-2">Create Directory</button>
+        </div>
+        <div id="directoryList" class="space-y-2 flex-1 overflow-y-auto"></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-4">
+        <h1 class="text-3xl font-bold mb-4 text-white">Document Handler</h1>
+        
+        <!-- Search Bar -->
+        <div class="mb-4">
+            <input type="text" id="searchBar" class="border p-2 rounded w-full md:w-1/2 bg-gray-700 text-white" placeholder="Search documents by name or description">
+        </div>
+
+        <!-- Document Upload -->
+        <div class="mb-4 flex flex-col md:flex-row md:gap-4">
+            <select id="directorySelect" class="border p-2 rounded flex-1 bg-gray-700 text-white">
+                <option value="">Select Directory</option>
+            </select>
+            <input type="file" id="documentImage" accept="image/*" class="border p-2 rounded flex-1 bg-gray-700 text-white">
+            <input type="text" id="documentName" class="border p-2 rounded flex-1 bg-gray-700 text-white" placeholder="Document Name">
+            <input type="text" id="documentDescription" class="border p-2 rounded flex-1 bg-gray-700 text-white" placeholder="Description">
+            <button id="addDocument" class="bg-green-500 text-white p-2 rounded flex-1">Add Document</button>
+        </div>
+
+        <!-- Document Display -->
+        <div id="documents" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+        <!-- Full-Screen Image Modal -->
+        <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-75 hidden flex items-center justify-center z-30">
+            <div class="relative w-full h-full flex flex-col items-center justify-center p-4">
+                <button id="closeImageModal" class="absolute top-4 right-4 text-white text-2xl">✕</button>
+                <img id="fullScreenImage" class="max-w-full max-h-[70vh] object-contain">
+                <div class="mt-4 flex space-x-2">
+                    <button onclick="printDocument()" class="bg-blue-500 text-white p-2 rounded">Print</button>
+                    <button onclick="shareDocument()" class="bg-green-500 text-white p-2 rounded">Share</button>
+                    <button onclick="viewDocument()" class="bg-yellow-500 text-white p-2 rounded">View Details</button>
+                    <button onclick="editDocument()" class="bg-purple-500 text-white p-2 rounded">Edit</button>
+                    <button onclick="deleteDocument()" class="bg-red-500 text-white p-2 rounded">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Modal -->
+        <div id="viewModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-40">
+            <div class="bg-gray-800 p-4 rounded max-w-2xl w-full">
+                <h2 class="text-xl font-bold mb-2 text-white">Document Details</h2>
+                <img id="modalImage" class="w-full h-64 object-contain mb-2">
+                <p><strong>Name:</strong> <span id="modalName" class="text-white"></span></p>
+                <p><strong>Description:</strong> <span id="modalDescription" class="text-white"></span></p>
+                <button onclick="closeDetailsModal()" class="bg-red-500 text-white p-2 rounded mt-2">Close</button>
+            </div>
+        </div>
+
+        <!-- Edit Modal -->
+        <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-40">
+            <div class="bg-gray-800 p-4 rounded max-w-2xl w-full">
+                <h2 class="text-xl font-bold mb-2 text-white">Edit Document</h2>
+                <img id="editModalImage" class="w-full h-64 object-contain mb-2">
+                <div class="mb-2">
+                    <label for="editModalName" class="block text-white">Name:</label>
+                    <input type="text" id="editModalName" class="border p-2 rounded w-full bg-gray-700 text-white">
+                </div>
+                <div class="mb-2">
+                    <label for="editModalDescription" class="block text-white">Description:</label>
+                    <input type="text" id="editModalDescription" class="border p-2 rounded w-full bg-gray-700 text-white">
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="saveEditDocument()" class="bg-green-500 text-white p-2 rounded">Save</button>
+                    <button onclick="closeEditModal()" class="bg-red-500 text-white p-2 rounded">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
